@@ -500,6 +500,25 @@ All production artifacts are compiled and staged in `./work/out/`:
    fastboot devices
    ```
 
+### 6.4 Backlight Power-Off & Blanking Defect Root-Cause Analysis & Fix
+
+During testing of the Bananarchy/Sxmo desktop on the LYF F90M, when the screen blanked, locked, or entered screen-off mode, the display turned solid white instead of going completely black:
+
+1. **Root Cause Analysis:**
+   - **Display Controller Behavior:** ST7789 is a transmissive, normally-white TFT LCD panel. When the DRM subsystem or Sxmo sends screen-off commands (`0x28` display off, `0x10` sleep in), pixel drive is disabled and the liquid crystal cells relax to their uncharged state, which is 100% optically transparent (passing all backlight illumination).
+   - **Missing Backlight GPIO Control:** In stock firmware (`stock/F90M_Extracted/dtb_1.dts`), the LCD backlight is explicitly configured as `bl_ctrl_gpio` on TLMM **GPIO 15** (`&msmgpio 15 GPIO_ACTIVE_HIGH`).
+   - **Inherited Nokia 8110 DTS Conflict:** The initial port inherited `qcom-msm8905-nokia-argon.dts`, which used `pwm-backlight` driven by PMIC MPP2 (`qcom,pm8916-pwm`), lacking any `enable-gpios` definition. On the F90M, GPIO 15 was turned ON by the stock bootloader (`aboot`/`lk2nd`) for continuous splash and remained constantly powered at 3.3V because the mainline kernel had no binding to toggle GPIO 15.
+   - **BLSP Pinmux Collision:** In `pinctrl@1000000`, `blsp-i2c4` and `blsp-spi4` both claimed `"gpio15"`, potentially conflicting with GPIO allocation.
+
+2. **Resolution & Fix Applied:**
+   - **Freed GPIO 15 in BLSP Pinctrl:** Removed `"gpio15"` from `blsp-i2c4-default-state`, `blsp-i2c4-sleep-state`, `blsp-spi4-default-state`, and `blsp-spi4-sleep-state`.
+   - **Dedicated Backlight Pinctrl:** Created `lcd-backlight-default-state` (`pins = "gpio15"; function = "gpio"; drive-strength = <0x02>; bias-disable; phandle = <0xb6>;`) and `lcd-backlight-sleep-state` (`pins = "gpio15"; function = "gpio"; drive-strength = <0x02>; bias-pull-down; phandle = <0xb7>;`) under `pinctrl@1000000`.
+   - **Wired `enable-gpios` in `backlight` Node:** Added `enable-gpios = <0x27 0x0f 0x00>;` and `pinctrl-names = "default", "sleep"; pinctrl-0 = <0xb6>; pinctrl-1 = <0xb7>;` to the top-level `backlight` (`pwm-backlight`) node in `qcom-msm8905-lyf-f90m.dts`. Now, whenever DRM DPMS blanks or Sxmo writes `0` to `/sys/class/backlight/backlight/brightness` or `4` to `bl_power`, `pwm_backlight_power_off()` immediately drives GPIO 15 to 0 (LOW), physically cutting power to the backlight boost IC.
+   - **Synchronized `qcom-msm8909-lyf-f90m.dts`:** Enabled `backlight` with matching `enable-gpios` and removed the duplicate `lcd-backlight` subnode from `gpio-leds` to prevent GPIO 15 resource contention (`-EBUSY`).
+   - **Updated `extlinux.conf` & Boot Partitions:** Pointed `extlinux.conf` directly to `qcom-msm8905-lyf-f90m.dtb`, repacked `boot-f90m.img`, and regenerated both `bananarchy-lyf-f90m.sparse.img` and `pmOS_root.sparse.img`.
+
+---
+
 #### Option 0: Live Update via SCP (Fastest — If Phone is Booted on 172.16.42.1)
 If the phone is already running Bananarchy/postmarketOS with USB networking:
 ```bash

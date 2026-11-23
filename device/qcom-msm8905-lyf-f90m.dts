@@ -770,7 +770,7 @@
 			};
 
 			blsp-i2c4-default-state {
-				pins = "gpio14", "gpio15";
+				pins = "gpio14";
 				function = "blsp_i2c4";
 				drive-strength = <0x02>;
 				bias-disable;
@@ -778,7 +778,7 @@
 			};
 
 			blsp-i2c4-sleep-state {
-				pins = "gpio14", "gpio15";
+				pins = "gpio14";
 				function = "gpio";
 				drive-strength = <0x02>;
 				bias-disable;
@@ -866,7 +866,7 @@
 			};
 
 			blsp-spi4-default-state {
-				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				pins = "gpio12", "gpio13", "gpio14";
 				function = "blsp_spi4";
 				drive-strength = <0x0c>;
 				bias-disable;
@@ -874,7 +874,7 @@
 			};
 
 			blsp-spi4-sleep-state {
-				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				pins = "gpio12", "gpio13", "gpio14";
 				function = "gpio";
 				drive-strength = <0x02>;
 				bias-pull-down;
@@ -1086,6 +1086,22 @@
 				drive-strength = <0x02>;
 				bias-pull-down;
 				phandle = <0x6e>;
+			};
+
+			lcd-backlight-default-state {
+				pins = "gpio15";
+				function = "gpio";
+				drive-strength = <0x02>;
+				bias-disable;
+				phandle = <0xb6>;
+			};
+
+			lcd-backlight-sleep-state {
+				pins = "gpio15";
+				function = "gpio";
+				drive-strength = <0x02>;
+				bias-pull-down;
+				phandle = <0xb7>;
 			};
 		};
 
@@ -2336,6 +2352,10 @@
 	backlight {
 		compatible = "pwm-backlight";
 		pwms = <0x85 0x00 0x186a0>;
+		enable-gpios = <0x27 0x0f 0x00>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <0xb6>;
+		pinctrl-1 = <0xb7>;
 		brightness-levels = <0x00 0x04 0x08 0x10 0x20 0x40 0x80 0xff>;
 		num-interpolated-steps = <0x02>;
 		default-brightness-level = <0x0a>;
